@@ -3,7 +3,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 const cors = require("cors")
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 
@@ -19,6 +19,7 @@ async function run() {
     try {
         await client.connect();
         const productsCollection = client.db('payment_gateway').collection('products');
+        const paymentCollection = client.db('payment_gateway').collection('payments');
 
         app.get('/product', async (req, res) => {
             const query = {};
@@ -38,6 +39,21 @@ async function run() {
             });
             res.send({ clientSecret: paymentIntent.client_secret })
         });
+
+        app.patch('/product/:id', async(req, res) => {
+            const id = req.params.id;
+            const payment = req.body;
+            const filter = {_id: ObjectId(id)};
+            const updatedDoc = {
+                $set : {
+                    paid: true,
+                    transactionId: payment.transactionId
+                }
+            }
+            const result = await paymentCollection.insertOne(payment);
+            const updatedProduct = await productsCollection.updateOne(filter, updatedDoc);
+            res.send(updatedDoc);
+        })
 
     }
     finally {
