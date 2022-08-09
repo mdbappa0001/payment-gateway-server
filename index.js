@@ -4,6 +4,7 @@ const port = process.env.PORT || 5000;
 const cors = require("cors")
 require("dotenv").config();
 const { MongoClient, ServerApiVersion } = require('mongodb');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 
 app.use(cors());
@@ -19,12 +20,24 @@ async function run() {
         await client.connect();
         const productsCollection = client.db('payment_gateway').collection('products');
 
-app.get('/product', async (req, res) =>{
-    const query = {};
-    const cursor = productsCollection.find(query);
-    const products = await cursor.toArray();
-    res.send(products);
-})
+        app.get('/product', async (req, res) => {
+            const query = {};
+            const cursor = productsCollection.find(query);
+            const products = await cursor.toArray();
+            res.send(products);
+        })
+
+        app.post('/create-payment-intent', async (req, res) => {
+            const product = req.body;
+            const price = product.price;
+            const amount = price * 100;
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+            res.send({ clientSecret: paymentIntent.client_secret })
+        });
 
     }
     finally {
